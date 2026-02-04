@@ -1,0 +1,6 @@
+pathlib 
+pdf2image 
+zipfile
+pytesseract
+PIL
+os
