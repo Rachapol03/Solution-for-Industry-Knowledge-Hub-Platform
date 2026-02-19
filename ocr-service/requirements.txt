@@ -4,5 +4,5 @@ zipfile
 pytesseract
 PIL
 os
-typhoon-ocr -U
+typhoon-ocr
 python-dotenv
