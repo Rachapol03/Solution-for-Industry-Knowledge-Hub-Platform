@@ -1,119 +1,65 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% block content %}
-<div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-    <div class="p-4 border-b bg-white flex items-center justify-between">
-        <div class="flex items-center gap-3">
-            <div class="bg-yellow-100 p-2 rounded-lg">
-                <i class="fa-solid fa-book-open text-yellow-600 text-xl"></i>
-            </div>
-            <div>
-                <h1 class="font-bold text-gray-800">Digital Logbook</h1>
-                <p class="text-xs text-gray-400">Knowledge Base Management System</p>
-            </div>
-        </div>
-        <div class="flex gap-4 text-sm font-medium">
-            <a href="/" class="text-gray-400 hover:text-red-500">RAG Search</a>
-            <a href="/community" class="text-gray-400 hover:text-red-500">Community</a>
-            <a href="/logbook" class="text-red-500 border-b-2 border-red-500 pb-1">Import Data</a>
-        </div>
-        <i class="fa-solid fa-gear text-gray-400"></i>
-    </div>
 
-    <div class="grid grid-cols-12 gap-0">
-        <div class="col-span-7 p-8 border-r bg-white">
-            <h2 class="text-lg font-bold mb-6 text-gray-700">Upload Source Material</h2>
-            
-            <div class="border-2 border-dashed border-blue-200 rounded-2xl p-10 bg-blue-50/30 text-center mb-6">
-                <div class="bg-blue-500 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-white shadow-lg shadow-blue-200">
-                    <i class="fa-solid fa-cloud-arrow-up text-xl"></i>
-                </div>
-                <p class="font-bold text-gray-700">Click or Drag files here</p>
-                <p class="text-xs text-gray-400 mt-1">Support PDF, DOCX, PNG, JPG (Max 50MB)</p>
-            </div>
+<h2 class="h4 fw-semibold mb-4">Document Upload</h2>
 
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 mb-1">Document Title <span class="text-red-500">*</span></label>
-                    <input type="text" placeholder="e.g. Manual for Boiler Operation" class="w-full p-3 bg-gray-50 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 mb-1">Category</label>
-                        <select class="w-full p-3 bg-gray-50 border rounded-lg appearance-none">
-                            <option>Steam & Boiler</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 mb-1">Access Level</label>
-                        <select class="w-full p-3 bg-gray-50 border rounded-lg">
-                            <option>Engineer</option>
-                        </select>
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 mb-1">Tags (Comma separated)</label>
-                    <input type="text" placeholder="Thermo-compressor, Energy Saving" class="w-full p-3 bg-gray-50 border rounded-lg">
-                </div>
-                <button class="w-full bg-red-500 text-white py-4 rounded-xl font-bold hover:bg-red-600 transition flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-plus"></i> Add to Queue
-                </button>
-            </div>
-        </div>
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="post" action="/upload" enctype="multipart/form-data" id="uploadForm">
+            <div class="mb-4">
+                <input id="fileInput" name="file" type="file" accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*" style="display:none">
 
-        <div class="col-span-5 p-8 bg-gray-50">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="font-bold text-gray-700">Processing Queue</h3>
-                <span class="bg-gray-200 text-gray-500 text-[10px] px-2 py-0.5 rounded-full">2 Files</span>
+                <label for="fileInput" id="dropZone" class="d-block text-center p-5 mb-2" style="border:2px dashed #cfe2ff;border-radius:8px;cursor:pointer;">
+                    <div style="font-size:28px;color:#0d6efd;margin-bottom:8px;">⬆️</div>
+                    <strong>Click to Upload or Drag File</strong>
+                    <div class="form-text mt-2">Supported: PDF, DOCX, PNG (Max 50MB)</div>
+                </label>
+
+                <script>
+                (function(){
+                    const drop = document.getElementById('dropZone');
+                    const input = document.getElementById('fileInput');
+
+                    // highlight on drag
+                    ['dragenter','dragover'].forEach(evt=>{
+                        drop.addEventListener(evt, e=>{ e.preventDefault(); drop.style.backgroundColor = '#f8fbff'; });
+                    });
+                    ['dragleave','drop'].forEach(evt=>{
+                        drop.addEventListener(evt, e=>{ e.preventDefault(); drop.style.backgroundColor = ''; });
+                    });
+
+                    drop.addEventListener('drop', e=>{
+                        e.preventDefault();
+                        if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length){
+                            input.files = e.dataTransfer.files;
+                        }
+                    });
+                })();
+                </script>
             </div>
 
-            <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm mb-4">
-                <div class="flex gap-3">
-                    <i class="fa-solid fa-file-pdf text-red-500 text-3xl"></i>
-                    <div class="flex-1">
-                        <div class="flex justify-between">
-                            <span class="text-sm font-bold text-gray-700 truncate max-w-[180px]">Steam_Optimization_Manual_v1.pdf</span>
-                            <i class="fa-solid fa-xmark text-gray-300 text-xs cursor-pointer"></i>
-                        </div>
-                        <p class="text-[10px] text-green-500">1.2 MB • Waiting for indexing</p>
-                        <div class="w-full bg-gray-100 h-1.5 rounded-full mt-2">
-                            <div class="bg-green-500 h-1.5 rounded-full w-full"></div>
-                        </div>
-                        <p class="text-[10px] text-green-500 mt-1 font-bold">● Uploaded</p>
-                    </div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Document Title</label>
+                    <input class="form-control" name="title" placeholder="Enter document title">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Category</label>
+                    <select class="form-select" name="category">
+                        <option selected>Select Category</option>
+                        <option>Engineering</option>
+                        <option>Production</option>
+                        <option>Transport</option>
+                        <option>Administration</option>
+                    </select>
                 </div>
             </div>
 
-            <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm mb-6">
-                <div class="flex gap-3">
-                    <i class="fa-solid fa-file-image text-blue-500 text-3xl"></i>
-                    <div class="flex-1">
-                        <div class="flex justify-between">
-                            <span class="text-sm font-bold text-gray-700 truncate max-w-[180px]">Thermo_Compression_Diagram.png</span>
-                            <i class="fa-solid fa-xmark text-gray-300 text-xs cursor-pointer"></i>
-                        </div>
-                        <p class="text-[10px] text-blue-500">850 KB • Processing OCR...</p>
-                        <div class="w-full bg-gray-100 h-1.5 rounded-full mt-2">
-                            <div class="bg-blue-500 h-1.5 rounded-full w-[60%]"></div>
-                        </div>
-                    </div>
-                </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Submit for Indexing</button>
             </div>
-
-            <div class="mb-6">
-                <p class="text-[10px] font-bold text-gray-400 mb-2 tracking-widest uppercase">System Log</p>
-                <div class="bg-black rounded-xl p-4 font-mono text-[11px] leading-loose">
-                    <p class="text-green-500">> Initializing upload sequence...</p>
-                    <p class="text-green-500">> Uploaded: Steam_Optimization_Manual_v1.pdf (100%)</p>
-                    <p class="text-green-500">> Uploaded: Thermo_Compression_Diagram.png (100%)</p>
-                    <p class="text-green-400">> Extracting text from PDF... Done.</p>
-                    <p class="text-yellow-400">> Running OCR on Image... Processing</p>
-                </div>
-            </div>
-
-            <button class="w-full bg-slate-800 text-white py-4 rounded-xl font-bold hover:bg-slate-900 transition shadow-lg">
-                Start RAG Indexing Process
-            </button>
-        </div>
+        </form>
     </div>
 </div>
+
 {% endblock %}

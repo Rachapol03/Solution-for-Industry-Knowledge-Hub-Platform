@@ -1,48 +1,173 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% block content %}
-<div class="grid grid-cols-12 gap-6">
-    <div class="col-span-8 bg-white rounded-xl shadow-sm border p-6">
-        <h2 class="text-xl font-bold mb-4">Create New Post</h2>
-        <div class="space-y-4">
-            <div>
-                <label class="text-sm text-gray-500">Post Title:</label>
-                <input type="text" class="w-full border-b p-2 focus:outline-none focus:border-red-500" placeholder="ระบุหัวข้อ...">
-            </div>
-            <div>
-                <label class="text-sm text-gray-500">Post Type:</label>
-                <select class="w-full border-b p-2 bg-gray-50">
-                    <option>tip</option>
-                </select>
-            </div>
-            <div>
-                <label class="text-sm text-gray-500">Content:</label>
-                <textarea class="w-full border rounded-lg p-4 h-40 bg-gray-50" placeholder="รายละเอียดเนื้อหา..."></textarea>
-            </div>
-            <div class="flex gap-2">
-                <button class="flex-1 bg-red-500 text-white py-3 rounded-lg font-bold">Post to Community</button>
-                <button class="flex-1 border-2 border-blue-900 text-blue-900 py-3 rounded-lg font-bold flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-database"></i> Add to RAG Database
-                </button>
-            </div>
-        </div>
-    </div>
 
-    <div class="col-span-4 space-y-4">
-        <div class="bg-white rounded-xl shadow-sm border p-4">
-            <div class="flex items-center justify-between mb-4">
-                <span class="text-sm font-bold">@AI Summary</span>
-                <button class="bg-red-500 text-white text-xs px-3 py-1 rounded-full">Generate Summary</button>
-            </div>
-            <div class="bg-green-50 p-4 rounded-xl border border-green-100">
-                <h3 class="font-bold text-green-800 mb-2">สรุปโพสต์ดังกล่าวใน 4 หัวข้อสั้นๆ:</h3>
-                <ul class="text-sm text-green-700 space-y-2 list-disc pl-4">
-                    <li><b>เป้าหมาย:</b> ควบคุมการใช้ไอในหม้อต้ม...</li>
-                    <li><b>เทอร์โมคอมเพรสเซอร์:</b> ติดตั้งระบบ...</li>
-                    <li><b>เทคโนโลยีทันสมัย:</b> โรงงานควรพิจารณา...</li>
-                </ul>
-                <button class="mt-4 text-red-500 text-xs font-bold uppercase">Close</button>
+{% if page == "create" %}
+
+<!-- ================= CREATE PAGE ================= -->
+
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <h2 class="h5 mb-3">Create New Post</h2>
+
+        <div class="card">
+            <div class="card-body">
+                <form id="postForm" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label>Title</label>
+                        <input name="title" class="form-control" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label>Type</label>
+                        <select name="type" class="form-select">
+                            <option value="discussion">discussion</option>
+                            <option value="tip">tip</option>
+                            <option value="question">question</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label>Content</label>
+                        <textarea name="content" rows="6"
+                                  class="form-control" required></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label>Tags</label>
+                        <input name="tags" class="form-control">
+                    </div>
+
+                    <div class="mb-3">
+                        <label>Attach Files</label>
+                        <input type="file" name="files"
+                               class="form-control" multiple>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="button"
+                                id="postBtn"
+                                class="btn btn-primary">
+                            Post
+                        </button>
+                        <a href="/community"
+                           class="btn btn-secondary">
+                            Back
+                        </a>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+document.getElementById('postBtn')
+?.addEventListener('click', async ()=>{
+    const form = document.getElementById('postForm');
+    const fd = new FormData(form);
+    const res = await fetch('/community/post', {
+        method:'POST',
+        body: fd
+    });
+    if(res.ok){
+        window.location.href = "/community";
+    }
+});
+</script>
+
+{% else %}
+
+<!-- ================= LIST PAGE ================= -->
+
+<div class="row">
+    <div class="col-md-8">
+        <h2 class="h5 mb-3">Community Posts</h2>
+
+        <div class="mb-3 text-end">
+            <a href="/community/create"
+               class="btn btn-primary btn-sm">
+                + Create New Post
+            </a>
+        </div>
+
+        <div id="postsContainer"></div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h6>AI Summary</h6>
+                <div id="aiSummary"
+                     style="min-height:120px;background:#f8f9fa;padding:12px;border-radius:6px">
+                    Select post first
+                </div>
+                <div class="mt-2 text-end">
+                    <button id="generateSummaryBtn"
+                            class="btn btn-sm btn-success">
+                        Generate Summary
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedPostId = null;
+
+async function fetchPosts(){
+    const res = await fetch('/community/posts');
+    const posts = await res.json();
+    const container = document.getElementById('postsContainer');
+    container.innerHTML = '';
+
+    posts.reverse().forEach(p=>{
+        const el = document.createElement('div');
+        el.className = 'card mb-2';
+        el.innerHTML = `
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <strong>${p.title}</strong>
+                    <small>${p.type}</small>
+                </div>
+                <p>${p.content.substring(0,200)}...</p>
+                <div class="mt-2 text-end">
+                    <button class="btn btn-sm btn-outline-primary"
+                        onclick="selectPost('${p.id}')">
+                        Select
+                    </button>
+                </div>
+            </div>
+        `;
+        container.appendChild(el);
+    });
+}
+
+function selectPost(id){
+    selectedPostId = id;
+    document.getElementById('aiSummary').innerText =
+        "Selected post: " + id;
+}
+
+document.getElementById('generateSummaryBtn')
+?.addEventListener('click', async ()=>{
+    if(!selectedPostId){
+        alert('Select post first');
+        return;
+    }
+    const res = await fetch('/community/generate_summary', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({id:selectedPostId})
+    });
+    const data = await res.json();
+    document.getElementById('aiSummary').innerText =
+        data.summary || "No summary";
+});
+
+fetchPosts();
+</script>
+
+{% endif %}
+
 {% endblock %}
