@@ -15,7 +15,7 @@ embed_model = SentenceTransformer('BAAI/bge-m3')
 rerank_model = CrossEncoder('BAAI/bge-reranker-v2-m3')
 
 client = MongoClient(os.getenv("DB_KEY"))
-collection = client['Knowledge_hub']['Document']
+collection = client['Knowledge_hub']['Data_project']
 kku_client = OpenAI(api_key=os.getenv("API_KEY"), base_url="https://gen.ai.kku.ac.th/api/v1")
 
 # --- Route สำหรับหน้าเว็บหลัก ---
@@ -51,7 +51,7 @@ def ask_rag():
     docs = list(collection.aggregate(pipeline))
 
     # --- ส่วนที่เพิ่มเข้ามา: ตรวจสอบ Threshold ---
-    threshold = 0.65  # ตั้งเกณฑ์ความคล้าย (ปรับเปลี่ยนได้ตามความเหมาะสม)
+    threshold = 0.01  # ตั้งเกณฑ์ความคล้าย (ปรับเปลี่ยนได้ตามความเหมาะสม)
     
     if not docs or docs[0]['score'] < threshold:
         # ถ้าไม่มีข้อมูล หรือ ตัวที่เหมือนที่สุดยังมีคะแนนต่ำกว่าเกณฑ์
