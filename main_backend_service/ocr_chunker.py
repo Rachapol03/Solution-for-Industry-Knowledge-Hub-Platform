@@ -1,27 +1,47 @@
 import os
 import re
-import pytesseract
-from PIL import Image
-from pathlib import Path
+import time
+from typhoon_ocr import ocr_document
 
-def run_ocr_and_chunk(image_paths, max_chunk_size=1000, overlap_size=200):
-    all_text_content = ""
+def run_ocr_and_chunk(image_paths, typhoon_api_key, max_chunk_size=1000, overlap_size=200):
+    """
+    ใช้ Typhoon OCR ประมวลผลรูปภาพ -> ทำความสะอาดข้อความ -> แบ่ง Chunk
+    """
+    # ตั้งค่า API Key ให้กับสภาพแวดล้อมเพื่อให้ Library ของ Typhoon เรียกใช้ได้
+    os.environ["TYPHOON_OCR_API_KEY"] = typhoon_api_key
     
-    # 1. ทำ OCR ทีละรูป (เรียงตามชื่อไฟล์เพื่อรักษาลำดับเนื้อหา)
+    all_text_content = ""
+    # 1. เรียงลำดับไฟล์รูปภาพ
     image_paths.sort(key=lambda f: int(re.sub(r'\D', '', os.path.basename(f))))
     
+    print(f"เริ่มกระบวนการ Typhoon OCR ทั้งหมด {len(image_paths)} ไฟล์...")
+    
     for img_path in image_paths:
-        # บน Cloud ต้องมั่นใจว่าติดตั้ง tesseract-ocr และระบุ lang='tha+eng'
-        text = pytesseract.image_to_string(Image.open(img_path), lang='tha+eng')
-        # ใส่ Page Marker ชั่วคราวเพื่อให้ระบบรู้จุดตัดหน้า (ถ้าจำเป็น)
-        all_text_content += text + "\n\n"
+        try:
+            print(f"ประมวลผลไฟล์: {os.path.basename(img_path)}")
+            # 2. ทำ OCR ด้วย Typhoon (ผลลัพธ์ที่ได้มักจะเป็น Markdown)
+            markdown_content = ocr_document(
+                img_path, 
+                model="typhoon-ocr", 
+                figure_language="Thai", 
+                task_type="v1.5"
+            )
+            
+            all_text_content += markdown_content + "\n\n"
+            
+            # หน่วงเวลาเพื่อเลี่ยง Rate Limit ของ API (ปรับตามความเหมาะสม)
+            time.sleep(2) 
+            
+        except Exception as e:
+            print(f"เกิดข้อผิดพลาดในการ OCR ไฟล์ {img_path}: {e}")
 
-    # 2. Cleaning ข้อมูล
+    # 3. Cleaning ข้อมูล
+    # ลบ Tag page_number และสัญลักษณ์ขยะอื่นๆ
     clean_text = re.sub(r'<page_number>.*?</page_number>', '', all_text_content, flags=re.DOTALL)
-    clean_text = re.sub(r"[|'\"—_]", '', clean_text) 
+    clean_text = re.sub(r"[|'\"—_]", '', clean_text)
     clean_text = re.sub(r' +', ' ', clean_text)
 
-    # 3. Algorithm: Header-Based Semantic Chunking with Overlap
+    # 4. Header-Based Semantic Chunking
     sections = re.split(r'(^#+ .*|\n#+ .*)', clean_text, flags=re.MULTILINE)
     
     chunks = []
@@ -41,7 +61,8 @@ def run_ocr_and_chunk(image_paths, max_chunk_size=1000, overlap_size=200):
                 p = p.strip()
                 if not p: continue
                 
-                if (p.startswith(('*', '-', '1.', '2.', '3.', '4.', '5.')) or buffer_text.endswith(':')):
+                # เงื่อนไขการรวมย่อหน้า (Bullet หรือจบด้วย :)
+                if (p.startswith(('*', '-', '1.', '2.', '3.')) or buffer_text.endswith(':')):
                     buffer_text += "\n" + p
                 elif len(buffer_text) + len(p) < max_chunk_size:
                     buffer_text = (buffer_text + "\n\n" + p) if buffer_text else p
@@ -49,11 +70,11 @@ def run_ocr_and_chunk(image_paths, max_chunk_size=1000, overlap_size=200):
                     if buffer_text:
                         chunks.append({"header": current_header, "content": buffer_text})
                     
-                    # สร้าง Overlap เพื่อความต่อเนื่อง
+                    # สร้าง Overlap
                     overlap_context = buffer_text[-overlap_size:] if len(buffer_text) > overlap_size else buffer_text
                     if '\n' in overlap_context:
                         overlap_context = overlap_context[overlap_context.find('\n'):].strip()
-                    buffer_text = overlap_context + "\n\n" + p if overlap_context else p
+                    buffer_text = (overlap_context + "\n\n" + p) if overlap_context else p
             
             if buffer_text:
                 chunks.append({"header": current_header, "content": buffer_text})
