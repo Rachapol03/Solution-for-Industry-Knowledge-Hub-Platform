@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="grid grid-cols-12 gap-6">
+    <div class="col-span-8 bg-white rounded-xl shadow-sm border p-6">
+        <h2 class="text-xl font-bold mb-4">Create New Post</h2>
+        <div class="space-y-4">
+            <div>
+                <label class="text-sm text-gray-500">Post Title:</label>
+                <input type="text" class="w-full border-b p-2 focus:outline-none focus:border-red-500" placeholder="ระบุหัวข้อ...">
+            </div>
+            <div>
+                <label class="text-sm text-gray-500">Post Type:</label>
+                <select class="w-full border-b p-2 bg-gray-50">
+                    <option>tip</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-sm text-gray-500">Content:</label>
+                <textarea class="w-full border rounded-lg p-4 h-40 bg-gray-50" placeholder="รายละเอียดเนื้อหา..."></textarea>
+            </div>
+            <div class="flex gap-2">
+                <button class="flex-1 bg-red-500 text-white py-3 rounded-lg font-bold">Post to Community</button>
+                <button class="flex-1 border-2 border-blue-900 text-blue-900 py-3 rounded-lg font-bold flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-database"></i> Add to RAG Database
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-span-4 space-y-4">
+        <div class="bg-white rounded-xl shadow-sm border p-4">
+            <div class="flex items-center justify-between mb-4">
+                <span class="text-sm font-bold">@AI Summary</span>
+                <button class="bg-red-500 text-white text-xs px-3 py-1 rounded-full">Generate Summary</button>
+            </div>
+            <div class="bg-green-50 p-4 rounded-xl border border-green-100">
+                <h3 class="font-bold text-green-800 mb-2">สรุปโพสต์ดังกล่าวใน 4 หัวข้อสั้นๆ:</h3>
+                <ul class="text-sm text-green-700 space-y-2 list-disc pl-4">
+                    <li><b>เป้าหมาย:</b> ควบคุมการใช้ไอในหม้อต้ม...</li>
+                    <li><b>เทอร์โมคอมเพรสเซอร์:</b> ติดตั้งระบบ...</li>
+                    <li><b>เทคโนโลยีทันสมัย:</b> โรงงานควรพิจารณา...</li>
+                </ul>
+                <button class="mt-4 text-red-500 text-xs font-bold uppercase">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MitrPhol RAG</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-white border-b p-4">
+        <div class="max-w-5xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-2 text-blue-900 font-bold text-xl">
+                <i class="fa-solid fa-magnifying-glass"></i> MitrPhol RAG Assistant
+            </div>
+            <div class="flex gap-6 text-sm text-gray-500">
+                <a href="/" class="hover:text-red-500 flex items-center gap-1"><i class="fa-solid fa-search"></i> RAG Search</a>
+                <a href="/community" class="hover:text-red-500 flex items-center gap-1"><i class="fa-solid fa-users"></i> Community Platform</a>
+                <a href="/logbook" class="hover:text-red-500 flex items-center gap-1">
+    <i class="fa-solid fa-book"></i> Digital Logbook
+</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-5xl mx-auto p-6">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

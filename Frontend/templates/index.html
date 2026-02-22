@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border p-6 min-h-[600px] flex flex-col">
+    <h2 class="text-2xl font-bold mb-6">Ask Your Question</h2>
+
+    <div class="flex-1 space-y-4 mb-6">
+        {% for msg in messages %}
+        <div class="flex gap-4 {{ 'flex-row-reverse' if msg.role == 'user' }}">
+            <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white 
+                {{ 'bg-orange-400' if msg.role == 'bot' else 'bg-red-500' }}">
+                <i class="fa-solid {{ 'fa-robot' if msg.role == 'bot' else 'fa-user' }}"></i>
+            </div>
+            <div class="max-w-[80%] p-4 rounded-2xl shadow-sm border 
+                {{ 'bg-orange-50' if msg.role == 'bot' else 'bg-gray-100' }}">
+                <p class="text-gray-700 whitespace-pre-line">{{ msg.content }}</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="border-t pt-4">
+        <p class="text-sm text-gray-400 mb-2">Continue this conversation</p>
+        <div class="relative">
+            <input type="text" placeholder="Ask a follow-up question..." 
+                   class="w-full p-4 pr-24 border rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-red-500">
+            <button class="absolute right-2 top-2 bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-red-600">
+                Send
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
