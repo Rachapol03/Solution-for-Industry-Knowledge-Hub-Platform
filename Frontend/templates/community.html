@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% if page == "create" %}
+
+<!-- ================= CREATE PAGE ================= -->
+
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <h2 class="h5 mb-3">Create New Post</h2>
+
+        <div class="card">
+            <div class="card-body">
+                <form id="postForm" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label>Title</label>
+                        <input name="title" class="form-control" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label>Type</label>
+                        <select name="type" class="form-select">
+                            <option value="discussion">discussion</option>
+                            <option value="tip">tip</option>
+                            <option value="question">question</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label>Content</label>
+                        <textarea name="content" rows="6"
+                                  class="form-control" required></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label>Tags</label>
+                        <input name="tags" class="form-control">
+                    </div>
+
+                    <div class="mb-3">
+                        <label>Attach Files</label>
+                        <input type="file" name="files"
+                               class="form-control" multiple>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="button"
+                                id="postBtn"
+                                class="btn btn-primary">
+                            Post
+                        </button>
+                        <a href="/community"
+                           class="btn btn-secondary">
+                            Back
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('postBtn')
+?.addEventListener('click', async ()=>{
+    const form = document.getElementById('postForm');
+    const fd = new FormData(form);
+    const res = await fetch('/community/post', {
+        method:'POST',
+        body: fd
+    });
+    if(res.ok){
+        window.location.href = "/community";
+    }
+});
+</script>
+
+{% else %}
+
+<!-- ================= LIST PAGE ================= -->
+
+<div class="row">
+    <div class="col-md-8">
+        <h2 class="h5 mb-3">Community Posts</h2>
+
+        <div class="mb-3 text-end">
+            <a href="/community/create"
+               class="btn btn-primary btn-sm">
+                + Create New Post
+            </a>
+        </div>
+
+        <div id="postsContainer"></div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h6>AI Summary</h6>
+                <div id="aiSummary"
+                     style="min-height:120px;background:#f8f9fa;padding:12px;border-radius:6px">
+                    Select post first
+                </div>
+                <div class="mt-2 text-end">
+                    <button id="generateSummaryBtn"
+                            class="btn btn-sm btn-success">
+                        Generate Summary
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedPostId = null;
+
+async function fetchPosts(){
+    const res = await fetch('/community/posts');
+    const posts = await res.json();
+    const container = document.getElementById('postsContainer');
+    container.innerHTML = '';
+
+    posts.reverse().forEach(p=>{
+        const el = document.createElement('div');
+        el.className = 'card mb-2';
+        el.innerHTML = `
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <strong>${p.title}</strong>
+                    <small>${p.type}</small>
+                </div>
+                <p>${p.content.substring(0,200)}...</p>
+                <div class="mt-2 text-end">
+                    <button class="btn btn-sm btn-outline-primary"
+                        onclick="selectPost('${p.id}')">
+                        Select
+                    </button>
+                </div>
+            </div>
+        `;
+        container.appendChild(el);
+    });
+}
+
+function selectPost(id){
+    selectedPostId = id;
+    document.getElementById('aiSummary').innerText =
+        "Selected post: " + id;
+}
+
+document.getElementById('generateSummaryBtn')
+?.addEventListener('click', async ()=>{
+    if(!selectedPostId){
+        alert('Select post first');
+        return;
+    }
+    const res = await fetch('/community/generate_summary', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({id:selectedPostId})
+    });
+    const data = await res.json();
+    document.getElementById('aiSummary').innerText =
+        data.summary || "No summary";
+});
+
+fetchPosts();
+</script>
+
+{% endif %}
+
+{% endblock %}

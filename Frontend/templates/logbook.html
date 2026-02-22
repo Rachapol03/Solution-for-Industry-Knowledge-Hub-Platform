@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 class="h4 fw-semibold mb-4">Document Upload</h2>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="post" action="/upload" enctype="multipart/form-data" id="uploadForm">
+            <div class="mb-4">
+                <input id="fileInput" name="file" type="file" accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*" style="display:none">
+
+                <label for="fileInput" id="dropZone" class="d-block text-center p-5 mb-2" style="border:2px dashed #cfe2ff;border-radius:8px;cursor:pointer;">
+                    <div style="font-size:28px;color:#0d6efd;margin-bottom:8px;">⬆️</div>
+                    <strong>Click to Upload or Drag File</strong>
+                    <div class="form-text mt-2">Supported: PDF, DOCX, PNG (Max 50MB)</div>
+                </label>
+
+                <script>
+                (function(){
+                    const drop = document.getElementById('dropZone');
+                    const input = document.getElementById('fileInput');
+
+                    // highlight on drag
+                    ['dragenter','dragover'].forEach(evt=>{
+                        drop.addEventListener(evt, e=>{ e.preventDefault(); drop.style.backgroundColor = '#f8fbff'; });
+                    });
+                    ['dragleave','drop'].forEach(evt=>{
+                        drop.addEventListener(evt, e=>{ e.preventDefault(); drop.style.backgroundColor = ''; });
+                    });
+
+                    drop.addEventListener('drop', e=>{
+                        e.preventDefault();
+                        if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length){
+                            input.files = e.dataTransfer.files;
+                        }
+                    });
+                })();
+                </script>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Document Title</label>
+                    <input class="form-control" name="title" placeholder="Enter document title">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Category</label>
+                    <select class="form-select" name="category">
+                        <option selected>Select Category</option>
+                        <option>Engineering</option>
+                        <option>Production</option>
+                        <option>Transport</option>
+                        <option>Administration</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Submit for Indexing</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
