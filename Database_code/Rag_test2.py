@@ -86,7 +86,7 @@ def rag_answer_multi(user_question):
     return response.choices[0].message.conten
 
 # --- ทดลองใช้งาน ---
-user_query = "นโยบายของพัรภัทรมีอะไรบ้าง" 
+user_query = "" 
 print(f"คำถาม: {user_query}")
 print("-" * 30)
 

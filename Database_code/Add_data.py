@@ -1,9 +1,13 @@
 from pymongo import MongoClient
 from sentence_transformers import SentenceTransformer
+import os 
+from dotenv import load_dotenv
 
 
+load_dotenv()
+db_key = os.getenv("DB_KEY")
 # เชื่อมต่อกับ MongoDB Atlas
-client = MongoClient("mongodb+srv://natchapolsr_db_user:7vstZcQFUAKbvvfj@cluster0.vqtkoim.mongodb.net/")
+client = MongoClient(db_key)
 db = client['Knowledge_hub']
 collection = db['Document']
 

@@ -12,7 +12,7 @@ api_key = os.getenv("API_KEY")
 
 client = MongoClient(db_key)
 db = client['Knowledge_hub']
-collection = db['Document']
+collection = db['Data_project']
 
 kku_client = OpenAI(
     api_key=api_key, 
