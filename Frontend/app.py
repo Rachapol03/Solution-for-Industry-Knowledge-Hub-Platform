@@ -4,6 +4,12 @@ import threading
 import time
 from werkzeug.utils import secure_filename
 import uuid
+import requests
+
+# Backend URL (main service)
+BACKEND_URL = os.environ.get('BACKEND_URL', 'http://127.0.0.1:5000')
+EMBED_URL = os.environ.get('EMBED_URL', 'http://127.0.0.1:8000')
+FRONTEND_PORT = int(os.environ.get('FRONTEND_PORT', 5500))
 
 app = Flask(__name__)
 
@@ -47,13 +53,43 @@ def dashboard():
         queue_count = len(processing_queue)
 
     recent_logs = system_log[-10:]  # เอา 10 รายการล่าสุด
+    # quick health checks for backend and embedding service
+    backend_up = False
+    embed_up = False
+    try:
+        r = requests.get(BACKEND_URL, timeout=1)
+        backend_up = r.ok
+    except Exception:
+        backend_up = False
+    try:
+        r2 = requests.get(EMBED_URL, timeout=1)
+        embed_up = r2.ok
+    except Exception:
+        embed_up = False
 
     return render_template(
         "dashboard.html",
         total_documents=total_documents,
         queue_count=queue_count,
-        recent_logs=recent_logs
+        recent_logs=recent_logs,
+        backend_up=backend_up,
+        embed_up=embed_up,
     )
+
+
+@app.route('/health')
+def health():
+    """Return combined health for frontend, main backend and embed server."""
+    status = {"frontend": True}
+    try:
+        status['backend'] = requests.get(BACKEND_URL, timeout=1).ok
+    except Exception:
+        status['backend'] = False
+    try:
+        status['embed'] = requests.get(EMBED_URL, timeout=1).ok
+    except Exception:
+        status['embed'] = False
+    return jsonify(status)
 
 
 @app.route("/rag", methods=["GET", "POST"])
@@ -69,7 +105,6 @@ def rag():
         )
 
     if request.method == "POST":
-
         message = request.form.get("message", "")
 
         if not conv_id:
@@ -77,16 +112,20 @@ def rag():
             conversations[conv_id] = []
 
         conversations.setdefault(conv_id, [])
+        conversations[conv_id].append({"role": "user", "content": message})
 
-        conversations[conv_id].append({
-            "role": "user",
-            "content": message
-        })
+        # Forward the message to the main backend /chat endpoint
+        try:
+            resp = requests.post(f"{BACKEND_URL}/chat", json={"message": message}, timeout=15)
+            if resp.ok:
+                data = resp.json()
+                answer = data.get('answer') or data.get('response') or ''
+            else:
+                answer = f"Backend error: {resp.status_code}"
+        except Exception as e:
+            answer = f"Error contacting backend: {e}"
 
-        conversations[conv_id].append({
-            "role": "bot",
-            "content": "Sample RAG response from knowledge base."
-        })
+        conversations[conv_id].append({"role": "bot", "content": answer})
 
     messages = conversations.get(conv_id, [])
 
@@ -171,34 +210,65 @@ def logbook():
 
 @app.route("/upload", methods=["POST"])
 def upload():
+    # ✅ ตรวจ file
     if 'file' not in request.files:
         return jsonify({"error": "No file part"}), 400
+
     file = request.files['file']
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
-    filename = secure_filename(file.filename)
-    save_path = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(save_path)
 
-    title = request.form.get('title', '')
-    category = request.form.get('category', '')
+    # ✅ รับค่าจาก form
+    title = request.form.get('title')
+    category = request.form.get('category')
     access_level = request.form.get('access_level', '')
     tags = request.form.get('tags', '')
 
-    item = {
-        "filename": filename,
-        "title": title,
-        "category": category,
-        "access_level": access_level,
-        "tags": tags,
-        "status": "Uploaded"
+    # ✅ Validate เพิ่ม (สำคัญ)
+    if not title:
+        return jsonify({"error": "Title is required"}), 400
+
+    if not category:
+        return jsonify({"error": "Category is required"}), 400
+
+    # ✅ เตรียม forward ไป backend หลัก
+    files = {
+        'file': (
+            secure_filename(file.filename),
+            file.stream,
+            file.mimetype
+        )
     }
-    with processing_lock:
-        processing_queue.append(item)
 
-    log(f"Uploaded: {filename} ({title})")
+    data = {
+        'title': title,
+        'category': category,
+        'access_level': access_level,
+        'tags': tags
+    }
 
-    return jsonify({"status": "ok", "item": item})
+    try:
+        resp = requests.post(
+            f"{BACKEND_URL}/upload",
+            files=files,
+            data=data,
+            timeout=120
+        )
+
+        if resp.ok:
+            log(f"Forwarded upload to backend: {file.filename} ({title})")
+            return (resp.content, resp.status_code, resp.headers.items())
+        else:
+            return jsonify({
+                "error": "Backend upload failed",
+                "detail": resp.text
+            }), resp.status_code
+
+    except Exception as e:
+        return jsonify({
+            "error": "Error contacting backend",
+            "detail": str(e)
+        }), 500
 
 
 @app.route("/queue")
@@ -228,4 +298,5 @@ def uploaded_file(filename):
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    print(f"Frontend starting on http://127.0.0.1:{FRONTEND_PORT} -> backend={BACKEND_URL} embed={EMBED_URL}")
+    app.run(debug=True, port=FRONTEND_PORT)
