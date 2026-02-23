@@ -1,0 +1,7 @@
+pathlib 
+pdf2image 
+pytesseract
+PIL
+os
+typhoon-ocr
+python-dotenv

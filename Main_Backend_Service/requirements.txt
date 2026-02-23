@@ -1,0 +1,12 @@
+flask
+fastapi
+uvicorn
+requests
+pymongo
+sentence-transformers
+openai
+python-dotenv
+pdf2image
+typhoon-ocr
+pillow
+werkzeug
