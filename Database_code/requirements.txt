@@ -1,0 +1,6 @@
+Flask
+sentence-transformers
+pymongo
+fitz
+os
+openai
