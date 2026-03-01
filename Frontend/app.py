@@ -1,21 +1,46 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify, send_from_directory
 import os
 import threading
 import time
-from werkzeug.utils import secure_filename
 import uuid
+
+from flask import Flask, render_template, request, redirect, url_for, jsonify, send_from_directory
+from werkzeug.utils import secure_filename
+from dotenv import load_dotenv
+
+# ==== RAG Modules ====
+from pdf_to_image import pdf_to_images
+from ocr_image_to_text import run_ocr
+from chunk_text import chunk_text
+from embedding_input_data import create_embeddings_to_db
+from rag_system import ask_rag
+
 import requests
 
-# Backend URL (main service)
-BACKEND_URL = os.environ.get('BACKEND_URL', 'http://127.0.0.1:5000')
-EMBED_URL = os.environ.get('EMBED_URL', 'http://127.0.0.1:8000')
-FRONTEND_PORT = int(os.environ.get('FRONTEND_PORT', 5500))
+load_dotenv()
 
 app = Flask(__name__)
 
+# ================= CONFIG =================
+
 BASE_DIR = os.path.dirname(__file__)
-UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
+UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
+
+CONFIG = {
+    "db_key": os.getenv("DB_KEY"),
+    "api_key": os.getenv("API_KEY"),
+    "base_url": "https://gen.ai.kku.ac.th/api/v1",
+    "local_api_url": "http://127.0.0.1:8000"
+}
+
+# ================== UTIL ==================
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# ================== MEMORY ==================
 
 conversations = {}
 processing_queue = []

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Knowledge Hub{% endblock %}</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        body { background-color: #f4f6f9; }
+        .navbar { background-color: #0d1b2a; }
+        .sidebar { background-color: #1b263b; min-height: 100vh; }
+        .sidebar a {
+            color: #fff;
+            text-decoration: none;
+            display: block;
+            padding: 12px;
+        }
+        .sidebar a:hover { background-color: #415a77; }
+        .active-menu {
+            background-color: #415a77;
+            font-weight: bold;
+        }
+        .content { padding: 30px; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark px-3">
+    <a class="navbar-brand text-white" href="{{ url_for('dashboard') }}">
+        Solution for Industry Knowledge Hub Platform
+    </a>
+</nav>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-2 sidebar">
+            <a href="{{ url_for('dashboard') }}"
+               class="{% if request.endpoint == 'dashboard' %}active-menu{% endif %}">
+               Dashboard
+            </a>
+
+            <a href="{{ url_for('rag') }}"
+               class="{% if request.endpoint == 'rag' %}active-menu{% endif %}">
+               AI Assistant
+            </a>
+
+            <a href="{{ url_for('community_list') }}"
+               class="{% if request.endpoint == 'community_list' %}active-menu{% endif %}">
+               Community
+            </a>
+
+            <a href="{{ url_for('logbook') }}"
+               class="{% if request.endpoint == 'logbook' %}active-menu{% endif %}">
+               Logbook
+            </a>
+        </div>
+
+        <div class="col-10 content">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>
