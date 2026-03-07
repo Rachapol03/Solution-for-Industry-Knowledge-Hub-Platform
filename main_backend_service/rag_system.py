@@ -1,52 +1,103 @@
 from pymongo import MongoClient
 from openai import OpenAI
-from embedding import get_embedding, get_rerank_scores # เรียกใช้ตัว bridge
+from embedding import get_embedding, get_rerank_scores 
 
 def ask_rag(user_question, config):
-    """
-    config: dict ที่เก็บ db_key, api_key, local_api_url, base_url ไว้
-    """
     client = MongoClient(config['db_key'])
-    collection = client['Knowledge_hub']['Data_project']
+    
+    # แยกการเชื่อมต่อเป็น 2 Collection
+    text_collection = client['Knowledge_hub']['Data_project']
+    fig_collection = client['Knowledge_hub']['Fig_data']
     
     kku_client = OpenAI(api_key=config['api_key'], base_url=config['base_url'])
 
-    # Step 1: Retrieval (ดึงผ่าน Vector Search)
+    # --- 1. แปลงคำถามเป็น Vector (ทำครั้งเดียว ใช้ได้ทั้ง 2 สาย) ---
     query_vector = get_embedding(user_question, config['local_api_url'])
     
-    pipeline = [
+    # ==========================================
+    # สายที่ 1: ค้นหาข้อความ (Text) จาก Data_project
+    # ==========================================
+    text_pipeline = [
         {
             "$vectorSearch": {
-                "index": "vector_index",
+                "index": "vector_index", # ชื่อ Index ของ Data_project
                 "queryVector": query_vector,
-                "path": "embedding",
+                "path": "embedding", # สมมติว่าใน Data_project มีฟิลด์ embedding ด้วย
                 "numCandidates": 100,
                 "limit": 10 
             }
         },
-        {"$project": {"_id": 0, "text": 1}}
+        {"$project": {"_id": 0, "text": 1, "header": 1, "page": 1}}
     ]
-    initial_docs = list(collection.aggregate(pipeline))
+    initial_text_docs = list(text_collection.aggregate(text_pipeline))
     
-    if not initial_docs:
-        return "ขออภัย ไม่พบข้อมูลที่เกี่ยวข้อง"
+    # ทำ Reranking สำหรับสาย Text
+    top_text_docs = []
+    if initial_text_docs:
+        docs_text = [doc['text'] for doc in initial_text_docs]
+        scores = get_rerank_scores(user_question, docs_text, config['local_api_url'])
+        
+        for i in range(len(initial_text_docs)):
+            initial_text_docs[i]['rerank_score'] = scores[i]
+        
+        reranked_docs = sorted(initial_text_docs, key=lambda x: x['rerank_score'], reverse=True)
+        top_text_docs = reranked_docs[:5] # เอาแค่ 5 อันดับแรกไปให้ LLM
 
-    # Step 2: Reranking (ส่งไปคัดที่เครื่อง Local)
-    docs_text = [doc['text'] for doc in initial_docs]
-    scores = get_rerank_scores(user_question, docs_text, config['local_api_url'])
+    # ==========================================
+    # สายที่ 2: ค้นหารูปภาพ (Image) จาก Fig_data
+    # ==========================================
+    fig_pipeline = [
+        {
+            "$vectorSearch": {
+                "index": "fig_vector_index", # **ต้องสร้าง Index ใน Atlas ให้ Fig_data ด้วยนะครับ**
+                "queryVector": query_vector,
+                "path": "embedding",
+                "numCandidates": 50,
+                "limit": 3 # เอารูปที่เกี่ยวที่สุดมาสัก 3 รูปก็พอ
+            }
+        },
+        {
+            "$project": {
+                "_id": 0, 
+                "path": 1, 
+                "pic_name": 1, 
+                "page": 1,
+                "score": {"$meta": "vectorSearchScore"}
+            }
+        }
+    ]
+    fig_docs = list(fig_collection.aggregate(fig_pipeline))
     
-    for i in range(len(initial_docs)):
-        initial_docs[i]['rerank_score'] = scores[i]
-    
-    reranked_docs = sorted(initial_docs, key=lambda x: x['rerank_score'], reverse=True)
-    top_docs = reranked_docs[:5]
+    # เตรียมข้อมูลรูปภาพส่งกลับไปหน้าเว็บ (เอาเฉพาะรูปที่คะแนนถึงเกณฑ์)
+    image_list = []
+    for d in fig_docs:
+        # อาจจะตั้งเกณฑ์ว่าถ้ารูปไม่ค่อยเกี่ยว (Score ต่ำ) ไม่ต้องโชว์
+        if d.get('score', 0) > 0.60: 
+            image_list.append({
+                "url": d.get('path', ''),
+                "name": d.get('pic_name', 'รูปภาพประกอบ'),
+                "page": d.get('page', '-')
+            })
 
-    # Step 3: Generation (LLM)
-    context_text = "\n\n".join([f"[แหล่งข้อมูลที่ {i+1}]: {d['text']}" for i, d in enumerate(top_docs)])
+    # ==========================================
+    # สายที่ 3: สรุปผลด้วย LLM (Generation)
+    # ==========================================
+    if not top_text_docs:
+        return {
+            "answer": "ขออภัย ไม่พบข้อมูลข้อความที่เกี่ยวข้องในระบบ",
+            "images": image_list # ถึงข้อความไม่เจอ แต่ถ้ารูปเจอ ก็ส่งรูปไปโชว์ได้
+        }
+
+    # รวม Text ไว้ให้ LLM (บอกหน้าด้วย เพื่อให้อ้างอิงได้แม่นขึ้น)
+    context_text = "\n\n".join([
+        f"[แหล่งข้อมูลที่ {i+1} (หน้า {d.get('page', '-')})]: {d.get('text', '')}" 
+        for i, d in enumerate(top_text_docs)
+    ])
     
     system_instruction = (
         "คุณคือผู้ช่วยอัจฉริยะที่แม่นยำที่สุด หากพบข้อมูลที่คล้ายกันจากหลายแหล่ง "
-        "จงสรุปและเปรียบเทียบเป็นข้อๆ (1, 2, 3...) และทำให้คำตอบของคุณมีความชัดเจนและกระชับที่สุด โดยเข้าใจง่ายที่สุด และจัดการให้คำตอบมีความสะอาดที่สุดเท่าที่จะเป็นไปได้ โดยพยายามหลีกเลี่ยงการใช้เครื่องหมาย * ตอบ"
+        "จงสรุปและเปรียบเทียบเป็นข้อๆ (1, 2, 3...) โดยอ้างอิงแหล่งข้อมูลและเลขหน้าเสมอ "
+        "ทำให้คำตอบชัดเจน กระชับ เข้าใจง่าย และสะอาดที่สุด หลีกเลี่ยงการใช้เครื่องหมาย *"
     )
 
     response = kku_client.chat.completions.create(
@@ -57,4 +108,11 @@ def ask_rag(user_question, config):
         ],
         temperature=0.2
     )
-    return response.choices[0].message.content
+    
+    answer_text = response.choices[0].message.content
+
+    # ส่งกลับทั้งคำตอบจาก LLM และรูปภาพจาก Fig_data
+    return {
+        "answer": answer_text,
+        "images": image_list
+    }

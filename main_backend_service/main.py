@@ -106,9 +106,6 @@ def rag():
     if request.method == "POST":
         message = request.form.get("message", "").strip()
         
-        # ป้องกัน Error
-        answer = "" 
-        
         if not conv_id:
             conv_id = str(uuid.uuid4())
         if conv_id not in conversations:
@@ -117,24 +114,33 @@ def rag():
         # เก็บข้อความผู้ใช้
         conversations[conv_id].append({"role": "user", "content": message})
 
+        final_answer = ""
         try:
             # === เรียกใช้ RAG ระบบจริง ===
-            answer = ask_rag(message, CONFIG)
+            result = ask_rag(message, CONFIG) # ตอนนี้ส่งกลับมาเป็น Dictionary แล้ว
 
-            # ถ้าผู้ใช้ถามถึง "รูป" หรือ "ภาพ" (ตัวอย่าง) ให้แนบรูปจากโฟลเดอร์ output_images
-            if any(k in message.lower() for k in ("รูป", "ภาพ", "picture", "photo", "image")):
-                img_dir = os.path.join(BASE_DIR, "output_images")
-                if os.path.isdir(img_dir):
-                    imgs = [f for f in os.listdir(img_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
-                    if imgs:
-                        fname = imgs[0]
-                        answer += f"\n<br><img src='/output_images/{fname}' style='max-width:100%;height:auto;border-radius:8px;'>"
+            # แยกคำตอบ Text กับ Images
+            answer_text = result.get("answer", "ขออภัย ไม่พบคำตอบ")
+            images = result.get("images", [])
+
+            final_answer = answer_text
+
+            # ถ้าระบบ RAG เจาะจงรูปมาให้ นำมาประกอบเป็น HTML ทันที
+            if images:
+                final_answer += "<br><br><div class='mt-2'><b>📸 รูปภาพประกอบ:</b><br>"
+                final_answer += "<div style='display: flex; gap: 10px; overflow-x: auto; margin-top: 8px;'>"
+                for img in images:
+                    final_answer += f"<div style='border: 1px solid #e5e7eb; padding: 8px; border-radius: 8px; text-align: center; background-color: #fff;'>"
+                    final_answer += f"<img src='{img.get('url', '')}' alt='{img.get('name', 'image')}' style='max-height: 150px; border-radius: 4px;'>"
+                    final_answer += f"<p style='font-size: 12px; color: #6b7280; margin-top: 4px;'>อ้างอิง: หน้า {img.get('page', '-')}</p>"
+                    final_answer += "</div>"
+                final_answer += "</div></div>"
 
         except Exception as e:
-            answer = f"เกิดข้อผิดพลาดจากระบบ RAG: {str(e)}"
+            final_answer = f"เกิดข้อผิดพลาดจากระบบ RAG: {str(e)}"
 
         # เก็บคำตอบลงแชท
-        conversations[conv_id].append({"role": "bot", "content": answer})
+        conversations[conv_id].append({"role": "bot", "content": final_answer})
         return redirect(url_for('rag', conv=conv_id))
 
     # ส่วนแสดงหน้าเว็บ (GET)
@@ -317,8 +323,9 @@ def chat():
     if not user_input:
         return jsonify({"error": "No message"}), 400
     try:
-        answer = ask_rag(user_input, CONFIG)
-        return jsonify({"answer": answer})
+        # รับค่าแบบ Dictionary จาก ask_rag และส่งออกผ่าน jsonify เลย
+        result = ask_rag(user_input, CONFIG)
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
