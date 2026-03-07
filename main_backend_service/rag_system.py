@@ -1,8 +1,9 @@
 from pymongo import MongoClient
 from openai import OpenAI
 from embedding import get_embedding, get_rerank_scores 
+import os
 
-def ask_rag(user_question, config):
+def ask_rag(user_question, config, debug=False):
     client = MongoClient(config['db_key'])
     
     # แยกการเชื่อมต่อเป็น 2 Collection
@@ -71,10 +72,12 @@ def ask_rag(user_question, config):
     # เตรียมข้อมูลรูปภาพส่งกลับไปหน้าเว็บ (เอาเฉพาะรูปที่คะแนนถึงเกณฑ์)
     image_list = []
     for d in fig_docs:
-        # อาจจะตั้งเกณฑ์ว่าถ้ารูปไม่ค่อยเกี่ยว (Score ต่ำ) ไม่ต้องโชว์
-        if d.get('score', 0) > 0.60: 
+        # เช็ค score ก่อน
+        if d.get('score', 0) > 0.8: 
+
+            cloud_url = d.get('path', '')
             image_list.append({
-                "url": d.get('path', ''),
+                "url": cloud_url, 
                 "name": d.get('pic_name', 'รูปภาพประกอบ'),
                 "page": d.get('page', '-')
             })
@@ -83,10 +86,19 @@ def ask_rag(user_question, config):
     # สายที่ 3: สรุปผลด้วย LLM (Generation)
     # ==========================================
     if not top_text_docs:
-        return {
+        result = {
             "answer": "ขออภัย ไม่พบข้อมูลข้อความที่เกี่ยวข้องในระบบ",
             "images": image_list # ถึงข้อความไม่เจอ แต่ถ้ารูปเจอ ก็ส่งรูปไปโชว์ได้
         }
+        if debug:
+            result["debug"] = {
+                "query": user_question,
+                "query_vector_length": len(query_vector) if hasattr(query_vector, '__len__') else None,
+                "text_hits": initial_text_docs,
+                "fig_hits": fig_docs,
+                "image_list": image_list
+            }
+        return result
 
     # รวม Text ไว้ให้ LLM (บอกหน้าด้วย เพื่อให้อ้างอิงได้แม่นขึ้น)
     context_text = "\n\n".join([
@@ -96,7 +108,7 @@ def ask_rag(user_question, config):
     
     system_instruction = (
         "คุณคือผู้ช่วยอัจฉริยะที่แม่นยำที่สุด หากพบข้อมูลที่คล้ายกันจากหลายแหล่ง "
-        "จงสรุปและเปรียบเทียบเป็นข้อๆ (1, 2, 3...) โดยอ้างอิงแหล่งข้อมูลและเลขหน้าเสมอ "
+        "จงสรุปและเปรียบเทียบเป็นข้อๆ (1, 2, 3...) "
         "ทำให้คำตอบชัดเจน กระชับ เข้าใจง่าย และสะอาดที่สุด หลีกเลี่ยงการใช้เครื่องหมาย *"
     )
 
@@ -112,7 +124,16 @@ def ask_rag(user_question, config):
     answer_text = response.choices[0].message.content
 
     # ส่งกลับทั้งคำตอบจาก LLM และรูปภาพจาก Fig_data
-    return {
+    result = {
         "answer": answer_text,
         "images": image_list
     }
+    if debug:
+        result["debug"] = {
+            "query": user_question,
+            "query_vector_length": len(query_vector) if hasattr(query_vector, '__len__') else None,
+            "top_text_docs": top_text_docs,
+            "fig_hits": fig_docs,
+            "image_list": image_list
+        }
+    return result

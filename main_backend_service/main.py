@@ -3,6 +3,7 @@ import threading
 import time
 import uuid
 import datetime
+import json
 
 from flask import Flask, render_template, request, redirect, url_for, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
@@ -114,10 +115,12 @@ def rag():
         # เก็บข้อความผู้ใช้
         conversations[conv_id].append({"role": "user", "content": message})
 
+        debug = (request.args.get("debug", "0").lower() in ("1", "true", "yes")) or (request.form.get("debug", "0").lower() in ("1", "true", "yes"))
+
         final_answer = ""
         try:
             # === เรียกใช้ RAG ระบบจริง ===
-            result = ask_rag(message, CONFIG) # ตอนนี้ส่งกลับมาเป็น Dictionary แล้ว
+            result = ask_rag(message, CONFIG, debug=debug) # ตอนนี้ส่งกลับมาเป็น Dictionary แล้ว
 
             # แยกคำตอบ Text กับ Images
             answer_text = result.get("answer", "ขออภัย ไม่พบคำตอบ")
@@ -136,12 +139,22 @@ def rag():
                     final_answer += "</div>"
                 final_answer += "</div></div>"
 
+            # แสดง Debug info (ถ้าเปิด)
+            if debug:
+                debug_info = result.get("debug")
+                if debug_info:
+                    final_answer += "<details style='margin-top: 12px;'><summary style='cursor: pointer; color: #2563eb;'>🔍 Debug info (คลิกเพื่อดู)</summary>"
+                    final_answer += "<pre style='background: #f3f4f6; padding: 10px; border-radius: 6px; overflow-x: auto;'>"
+                    final_answer += json.dumps(debug_info, indent=2, ensure_ascii=False)
+                    final_answer += "</pre></details>"
+
         except Exception as e:
             final_answer = f"เกิดข้อผิดพลาดจากระบบ RAG: {str(e)}"
 
         # เก็บคำตอบลงแชท
         conversations[conv_id].append({"role": "bot", "content": final_answer})
-        return redirect(url_for('rag', conv=conv_id))
+        # เก็บ debug flag ไว้ใน URL เพื่อให้ Debug info ยังคงแสดงในหน้าต่อ ๆ ไป
+        return redirect(url_for('rag', conv=conv_id, debug="1" if debug else "0"))
 
     # ส่วนแสดงหน้าเว็บ (GET)
     messages = conversations.get(conv_id, [])
@@ -320,11 +333,12 @@ def upload():
 def chat():
     """Chat endpoint for RAG queries."""
     user_input = request.json.get('message')
+    debug = request.json.get('debug', False)
     if not user_input:
         return jsonify({"error": "No message"}), 400
     try:
         # รับค่าแบบ Dictionary จาก ask_rag และส่งออกผ่าน jsonify เลย
-        result = ask_rag(user_input, CONFIG)
+        result = ask_rag(user_input, CONFIG, debug=debug)
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500

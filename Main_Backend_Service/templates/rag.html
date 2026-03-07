@@ -220,6 +220,7 @@
 
         <div class="input-area">
             <form id="chatForm" method="POST" action="{{ url_for('rag', conv=conv_id) }}">
+                <input type="hidden" name="debug" value="{{ request.args.get('debug', '0') }}">
                 <div class="input-group bg-light rounded-4 p-2 border">
                     <textarea id="msgInput" name="message" class="form-control border-0" rows="1" placeholder="พิมพ์คำถามของคุณที่นี่..." required></textarea>
                     <button id="sendBtn" class="btn btn-primary rounded-4 px-4 m-1 shadow-sm d-flex align-items-center" type="submit">
