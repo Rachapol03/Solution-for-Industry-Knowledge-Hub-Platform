@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <h2 class="h3 fw-bold mb-2">Document Indexing</h2>
+        <p class="text-muted mb-4">Upload documents securely to your knowledge base.</p>
+
+        <div class="card">
+            <div class="card-body p-5">
+                <form method="post" action="/upload" enctype="multipart/form-data" id="uploadForm">
+
+                    <input id="fileInput" name="file" type="file" accept=".pdf,.png,.jpg,.jpeg" style="display:none" required>
+                    
+                    <label for="fileInput" id="dropZone" class="d-block text-center p-5 mb-4 rounded-4" 
+                        style="border: 2px dashed #a3aed1; cursor: pointer; background: #fafbfe; transition: all 0.3s ease;">
+                        <div class="mb-3">
+                            <div class="d-inline-flex align-items-center justify-content-center bg-primary bg-opacity-10 text-primary rounded-circle" style="width: 70px; height: 70px;">
+                                <i class="bi bi-cloud-arrow-up-fill fs-1"></i>
+                            </div>
+                        </div>
+                        <h5 class="fw-bold mb-1 text-dark">Click to Upload or Drag File Here</h5>
+                        <p class="text-muted small mb-0">Supported formats: PDF, PNG, JPG, JPEG</p>
+                    </label>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Document Title</label>
+                            <input type="text" name="title" class="form-control" placeholder="Enter a clear, descriptive title..." required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Category</label>
+                            <select name="category" class="form-select" required>
+                                <option value="" selected disabled>Select Category</option>
+                                <option value="Policy">📄 Policy</option>
+                                <option value="Technical">⚙️ Technical</option>
+                                <option value="HR">👥 HR</option>
+                                <option value="Finance">💰 Finance</option>
+                                <option value="Other">📂 Other</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-3 fw-bold fs-6">
+                        <i class="bi bi-hdd-network-fill me-2"></i> Submit for Indexing
+                    </button>
+
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', ()=>{
+    const form = document.getElementById('uploadForm');
+    const fileInput = document.getElementById('fileInput');
+    const drop = document.getElementById('dropZone');
+
+    drop.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        drop.style.background = "#eff4ff";
+        drop.style.borderColor = "#4318FF";
+        drop.style.transform = "scale(1.02)";
+    });
+
+    drop.addEventListener('dragleave', () => {
+        drop.style.background = "#fafbfe";
+        drop.style.borderColor = "#a3aed1";
+        drop.style.transform = "scale(1)";
+    });
+    
+    fileInput.addEventListener('change', () => {
+        if(fileInput.files.length > 0) {
+            drop.querySelector('h5').innerText = fileInput.files[0].name;
+            drop.querySelector('.bi').className = "bi bi-file-earmark-check-fill fs-1 text-success";
+            drop.style.borderColor = "#198754";
+        }
+    });
+
+    form.addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const fd = new FormData(form);
+        const btn = form.querySelector('button[type=submit]');
+        const originalText = btn.innerHTML;
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Uploading...';
+
+        try{
+            const res = await fetch('/upload', { method: 'POST', body: fd });
+            const data = await res.json();
+            alert(res.ok ? 'Upload success! The document is now indexed.' : (data.error || 'Upload error'));
+            if(res.ok) {
+                form.reset();
+                drop.querySelector('h5').innerText = "Click to Upload or Drag File Here";
+                drop.querySelector('.bi').className = "bi bi-cloud-arrow-up-fill fs-1";
+                drop.style.borderColor = "#a3aed1";
+            }
+        }catch(err){
+            alert('Upload error. Please try again.');
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+});
+</script>
+{% endblock %}
