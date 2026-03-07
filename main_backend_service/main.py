@@ -188,7 +188,7 @@ def community_post():
                 fi.save(path)
                 files.append(fname)
 
-    post = {
+    post_data = {
         'id': str(uuid.uuid4()),
         'title': title,
         'type': ptype,
@@ -197,75 +197,123 @@ def community_post():
         'files': files,
         'created_at': time.time()
     }
-    community_posts.append(post)
-    log(f"Community post added: {title}")
-    return jsonify({'status':'ok','post':post})
+    
+    # ส่งข้อมูลไปบันทึกที่ Database ผ่าน Local API
+    try:
+        headers = {"x-api-key": CONFIG["db_key"]} # ปรับ Header ให้ตรงกับที่ API ฝั่ง DB ของคุณต้องการ
+        url = f"{CONFIG['local_api_url']}/api/posts" # ปรับ Path ให้ตรงกับ API สร้างโพสต์ของคุณ
+        
+        res = requests.post(url, json=post_data, headers=headers)
+        res.raise_for_status()
+        
+        log(f"Community post added to DB: {title}")
+        return jsonify({'status':'ok', 'post': post_data})
+    except requests.exceptions.RequestException as e:
+        log(f"DB Error (Create Post): {str(e)}")
+        return jsonify({'error': 'Failed to save to database'}), 500
 
 
 @app.route('/community/posts')
 def community_posts_list():
-    return jsonify(community_posts)
+    # ดึงข้อมูลโพสต์ทั้งหมดจาก Database API
+    try:
+        headers = {"x-api-key": CONFIG["db_key"]}
+        url = f"{CONFIG['local_api_url']}/api/posts" # ปรับ Path ให้ตรงกับ API ดึงโพสต์ของคุณ
+        
+        res = requests.get(url, headers=headers)
+        res.raise_for_status()
+        
+        posts_data = res.json() # คาดหวังว่า DB จะคืนค่าเป็น List ของ Dict
+        return jsonify(posts_data)
+    except requests.exceptions.RequestException as e:
+        log(f"DB Error (Get Posts): {str(e)}")
+        return jsonify([]), 500 # ส่ง List ว่างกลับไปเพื่อไม่ให้หน้าเว็บพัง
 
 
 @app.route("/community/post/<post_id>")
 def community_detail(post_id):
-    post = next((p for p in community_posts if p.get('id') == post_id), None)
-    if not post:
-        return "Post not found", 404
+    # ดึงข้อมูลโพสต์แบบเฉพาะเจาะจงจาก Database API
+    try:
+        headers = {"x-api-key": CONFIG["db_key"]}
+        url = f"{CONFIG['local_api_url']}/api/posts/{post_id}" # ปรับ Path ตาม API ของคุณ
+        
+        res = requests.get(url, headers=headers)
+        
+        if res.status_code == 404:
+            return "Post not found", 404
+            
+        res.raise_for_status()
+        post = res.json()
+        
+        # จัดรูปแบบวันที่สำหรับแสดงผล
+        if 'created_at' in post:
+            post['date'] = time.strftime('%Y-%m-%d %H:%M', time.localtime(float(post['created_at'])))
+        else:
+            post['date'] = "Unknown Date"
 
-    if 'created_at' in post:
-        post['date'] = time.strftime('%Y-%m-%d %H:%M', time.localtime(post['created_at']))
-    else:
-        post['date'] = "Unknown Date"
+        post.setdefault('author', 'Anonymous User')
+        post.setdefault('comments', [])
 
-    post.setdefault('author', 'Anonymous User')
-    post.setdefault('comments', [])
-
-    return render_template("community.html", page="detail", post=post)
+        return render_template("community.html", page="detail", post=post)
+    except requests.exceptions.RequestException as e:
+        log(f"DB Error (Get Post Detail): {str(e)}")
+        return "Database Connection Error", 500
 
 
 @app.route('/community/post/<post_id>/comment', methods=['POST'])
 def community_comment(post_id):
-    post = next((p for p in community_posts if p.get('id') == post_id), None)
-    if not post:
-        return jsonify({'error': 'post not found'}), 404
-
     data = request.get_json() or {}
     text = data.get('text', '').strip()
 
     if not text:
         return jsonify({'error': 'comment text is required'}), 400
 
-    if 'comments' not in post:
-        post['comments'] = []
-
     new_comment = {
         'id': str(uuid.uuid4()),
+        'post_id': post_id,
         'text': text,
         'author': 'Anonymous User',
         'date': time.strftime('%Y-%m-%d %H:%M', time.localtime(time.time()))
     }
     
-    post['comments'].append(new_comment)
-    log(f"Comment added to post ID: {post_id}")
-    
-    return jsonify({'status': 'ok', 'comment': new_comment})
+    # ส่งคอมเมนต์ไปบันทึกลง Database
+    try:
+        headers = {"x-api-key": CONFIG["db_key"]}
+        url = f"{CONFIG['local_api_url']}/api/posts/{post_id}/comments" # ปรับ Path ตาม API ของคุณ
+        
+        res = requests.post(url, json=new_comment, headers=headers)
+        res.raise_for_status()
+        
+        log(f"Comment added to post ID: {post_id}")
+        return jsonify({'status': 'ok', 'comment': new_comment})
+    except requests.exceptions.RequestException as e:
+        log(f"DB Error (Add Comment): {str(e)}")
+        return jsonify({'error': 'Failed to save comment to database'}), 500
 
 
 @app.route('/community/generate_summary', methods=['POST'])
 def community_generate_summary():
     data = request.get_json() or {}
     pid = data.get('id')
-    post = next((p for p in community_posts if p['id']==pid), None)
-    if not post:
-        return jsonify({'error':'post not found'}), 404
     
-    content = post.get('content','')
+    # ต้องดึงเนื้อหาจาก DB ก่อนส่งไปสรุป
     try:
+        headers = {"x-api-key": CONFIG["db_key"]}
+        url = f"{CONFIG['local_api_url']}/api/posts/{pid}"
+        
+        res = requests.get(url, headers=headers)
+        res.raise_for_status()
+        post = res.json()
+        
+        content = post.get('content','')
         summary = summarize_post(content, CONFIG)
+        return jsonify({'summary': summary})
+        
+    except requests.exceptions.RequestException as e:
+        return jsonify({'error': 'Post not found or DB error'}), 404
     except Exception as e:
-        summary = f"Error summarizing: {e}"
-    return jsonify({'summary': summary})
+        return jsonify({'error': f'Error summarizing: {e}'}), 500
+
 
 
 @app.route("/logbook")
