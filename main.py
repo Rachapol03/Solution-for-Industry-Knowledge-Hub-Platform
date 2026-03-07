@@ -360,6 +360,6 @@ def output_image(filename):
     return send_from_directory(os.path.join(BASE_DIR, "output_images"), filename)
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 5000))
-    print(f"Frontend starting on http://127.0.0.1:{port}")
-    app.run(debug=True, port=port)
+    port = int(os.environ.get('PORT', 5000))
+    print(f"Starting on port {port}")
+    app.run(host='0.0.0.0', port=port)
