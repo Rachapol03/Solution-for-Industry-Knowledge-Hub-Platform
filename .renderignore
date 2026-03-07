@@ -1,0 +1,2 @@
+# Do not include the local embedding/rerank server in the Render build context
+Main_Backend_Service/server_local.py

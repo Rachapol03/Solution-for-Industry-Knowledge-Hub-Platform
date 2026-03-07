@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: knowledge-hub-backend
+    env: python
+    plan: free
+    buildCommand: "pip install -r Main_Backend_Service/requirements.txt"
+    startCommand: "python Main_Backend_Service/main.py"
+    envVars:
+      - key: DB_KEY
+      - key: API_KEY
+      - key: BASE_URL
+        value: "https://gen.ai.kku.ac.th/api/v1"
+      - key: LOCAL_API_URL
+        value: "http://127.0.0.1:8000"

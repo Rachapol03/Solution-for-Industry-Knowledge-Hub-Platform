@@ -35,8 +35,10 @@ ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
 CONFIG = {
     "db_key": os.getenv("DB_KEY"),
     "api_key": os.getenv("API_KEY"),
-    "base_url": "https://gen.ai.kku.ac.th/api/v1",
-    "local_api_url": "http://127.0.0.1:8000"
+    "base_url": os.getenv("BASE_URL", "https://gen.ai.kku.ac.th/api/v1"),
+    # ชี้ไปที่ Local embedding/ rerank service (server_local.py)
+    # ใน production บน Render ให้กำหนดเป็น URL ของ ngrok หรือ endpoint ของ service
+    "local_api_url": os.getenv("LOCAL_API_URL", "http://127.0.0.1:8000")
 }
 
 # ================= DATABASE =================
