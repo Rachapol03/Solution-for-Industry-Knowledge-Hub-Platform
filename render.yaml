@@ -3,15 +3,11 @@ services:
     name: knowledge-hub-backend
     env: python
     plan: free
-    # กำหนด Root Directory เพื่อให้ระบบเข้าไปในโฟลเดอร์นี้โดยตรง
-    rootDirectory: Main_Backend_Service
-    # เมื่ออยู่ในโฟลเดอร์แล้ว สั่งรันคำสั่งสั้นๆ ได้เลย
     buildCommand: "pip install -r requirements.txt"
     startCommand: "python main.py"
     envVars:
       - key: DB_KEY
       - key: API_KEY
-      - key: TYPHOON_OCR_API_KEY
       - key: BASE_URL
         value: "https://gen.ai.kku.ac.th/api/v1"
       - key: LOCAL_API_URL
