@@ -1,69 +1,284 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="container mt-4">
+<style>
+    :root {
+        --primary-color: #4318FF;
+        --secondary-color: #868CFF;
+        --bg-color: #F4F7FE;
+        --text-main: #2B3674;
+        --ai-bubble-bg: #ffffff;
+        --user-bubble-bg: linear-gradient(135deg, #4318FF, #868CFF);
+    }
 
-{% if mode == "history" %}
+    /* ตกแต่ง Container หลัก */
+    #chatContent {
+        background: url('https://www.transparenttextures.com/patterns/cubes.png') var(--bg-color);
+        border-radius: 20px;
+        min-height: 60vh;
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.02);
+    }
 
-<div class="d-flex justify-content-between mb-3">
-    <h3>Chat History</h3>
-    <a href="{{ url_for('rag') }}" class="btn btn-primary">Start New Chat</a>
-</div>
+    /* พื้นที่แสดงข้อความ */
+    #chatBox {
+        height: 60vh;
+        overflow-y: auto;
+        padding: 25px;
+        scroll-behavior: smooth;
+    }
 
-{% for cid, msgs in conversations.items() %}
-    <div class="card mb-3 p-3">
-        <div><b>Conversation ID:</b> {{ cid }}</div>
-        <div><b>Total messages:</b> {{ msgs|length }}</div>
-        <a href="{{ url_for('rag') }}?conv={{ cid }}"
-           class="btn btn-sm btn-outline-primary mt-2">
-           Open Chat
+    /* กำหนดสไตล์ Chat Bubble */
+    .chat-bubble {
+        max-width: 80%;
+        padding: 15px 20px;
+        line-height: 1.6;
+        font-size: 15px;
+        position: relative;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        word-wrap: break-word;
+    }
+
+    .user-bubble {
+        background: var(--user-bubble-bg);
+        color: white;
+        border-radius: 20px 20px 0 20px;
+        margin-left: auto;
+    }
+
+    .ai-bubble {
+        background: var(--ai-bubble-bg);
+        color: var(--text-main);
+        border-radius: 20px 20px 20px 0;
+        margin-right: auto;
+        border: 1px solid #edf2f7;
+    }
+
+    /* ตกแต่งรูปภาพที่ AI ส่งมา */
+    .chat-bubble img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 12px;
+        margin-top: 12px;
+        border: 2px solid rgba(255,255,255,0.8);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        cursor: zoom-in;
+        transition: transform 0.2s ease;
+        display: block;
+    }
+
+    .chat-bubble img:hover {
+        transform: scale(1.02);
+    }
+
+    /* แอนิเมชันตอน AI กำลังพิมพ์ */
+    .typing span {
+        width: 8px; height: 8px;
+        background-color: var(--primary-color);
+        display: inline-block; border-radius: 50%;
+        animation: bounce 1.3s infinite; opacity: 0.6;
+        margin: 0 2px;
+    }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes bounce { 
+        0%, 100% { transform: translateY(0); } 
+        50% { transform: translateY(-6px); } 
+    }
+
+    /* ปรับแต่ง Scrollbar */
+    #chatBox::-webkit-scrollbar { width: 6px; }
+    #chatBox::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+
+    /* Input Area */
+    .input-area {
+        background: white;
+        border-top: 1px solid #edf2f7;
+        padding: 20px;
+    }
+
+    textarea#msgInput {
+        border: none;
+        background: transparent;
+        resize: none;
+        padding: 10px;
+        max-height: 150px;
+    }
+
+    textarea#msgInput:focus { box-shadow: none; }
+
+    /* History Cards */
+    .history-card {
+        border: none;
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        background: white;
+    }
+    .history-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(67, 24, 255, 0.1) !important;
+    }
+</style>
+
+<div class="container py-4" style="max-width: 1000px;">
+
+    {% if mode == "history" %}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-primary mb-1">Chat History</h2>
+            <p class="text-muted small">เรียกดูบทสนทนาย้อนหลังของคุณ</p>
+        </div>
+        <a href="{{ url_for('rag') }}" class="btn btn-primary rounded-pill px-4 shadow-sm">
+            <i class="bi bi-plus-lg me-2"></i>New Chat
         </a>
     </div>
-{% else %}
-    <p>No conversations yet.</p>
-{% endfor %}
 
-{% else %}
-
-<div class="d-flex justify-content-between mb-3">
-    <h3>RAG Assistant</h3>
-    <a href="{{ url_for('rag') }}?mode=history"
-       class="btn btn-outline-secondary">
-        View History
-    </a>
-</div>
-
-<div id="chatBox"
-     style="height:60vh; overflow-y:auto; border:1px solid #ddd; padding:15px;">
-    {% for msg in messages %}
-        <div class="mb-2">
-            <b>{{ msg.role }}:</b> {{ msg.content }}
+    <div class="row g-3">
+        {% for cid, msgs in conversations.items() %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card history-card shadow-sm h-100">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="bg-primary bg-opacity-10 p-2 rounded-3 text-primary me-2">
+                            <i class="bi bi-chat-left-text"></i>
+                        </div>
+                        <h6 class="fw-bold mb-0 text-truncate">Chat ID: {{ cid[:8] }}</h6>
+                    </div>
+                    <p class="text-muted small flex-grow-1">
+                        <i class="bi bi-chat-dots me-1"></i> Messages: {{ msgs|length }}<br>
+                        <i class="bi bi-clock me-1"></i> Last: {{ msgs[-1].content[:40] }}{% if msgs[-1].content|length > 40 %}...{% endif %}
+                    </p>
+                    <a href="{{ url_for('rag', conv=cid) }}" class="btn btn-outline-primary btn-sm rounded-pill mt-3">
+                        Open Conversation
+                    </a>
+                </div>
+            </div>
         </div>
-    {% endfor %}
-</div>
-
-<form method="POST" class="mt-3">
-    <div class="d-flex gap-2">
-        <textarea name="message"
-                  class="form-control"
-                  rows="2"
-                  required></textarea>
-        <button class="btn btn-danger">Send</button>
+        {% else %}
+        <div class="col-12 text-center py-5">
+            <div class="opacity-25 mb-3"><i class="bi bi-folder2-open display-1"></i></div>
+            <p class="text-muted">ยังไม่มีประวัติการสนทนา</p>
+        </div>
+        {% endfor %}
     </div>
-</form>
 
-{% endif %}
+    {% else %}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex align-items-center gap-3">
+            <div class="bg-primary text-white p-3 rounded-4 shadow-sm">
+                <i class="bi bi-robot fs-3"></i>
+            </div>
+            <div>
+                <h3 class="fw-bold mb-0 text-primary">AI Assistant</h3>
+                <span class="badge bg-success bg-opacity-10 text-success rounded-pill">
+                    <span class="spinner-grow spinner-grow-sm me-1"></span> Online
+                </span>
+            </div>
+        </div>
+        <a href="{{ url_for('rag', mode='history') }}" class="btn btn-outline-secondary rounded-pill px-3 border-0 bg-white shadow-sm">
+            <i class="bi bi-clock-history me-2"></i>History
+        </a>
+    </div>
+
+    <div class="card border-0 shadow-lg overflow-hidden" id="chatContent">
+        <div id="chatBox">
+            {% if not messages %}
+                <div class="h-100 d-flex flex-column align-items-center justify-content-center text-center opacity-50">
+                    <i class="bi bi-stars display-4 text-primary mb-3"></i>
+                    <h5 class="fw-bold">ยินดีต้อนรับสู่ Knowledge Hub</h5>
+                    <p class="small">พิมพ์คำถามเพื่อค้นหาข้อมูลจากฐานความรู้ของคุณได้เลย</p>
+                </div>
+            {% endif %}
+
+            {% for msg in messages %}
+                <div class="d-flex mb-4 {% if msg.role == 'user' %}justify-content-end{% endif %}">
+                    {% if msg.role != 'user' %}
+                    <div class="me-2 mt-auto">
+                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                            <i class="bi bi-robot" style="font-size: 0.9rem;"></i>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="chat-bubble {% if msg.role == 'user' %}user-bubble{% else %}ai-bubble{% endif %}">
+                        {{ msg.content | safe }}
+                    </div>
+                </div>
+            {% endfor %}
+
+            <div id="aiLoading" class="d-flex mb-4 d-none">
+                <div class="me-2 mt-auto">
+                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                        <i class="bi bi-robot"></i>
+                    </div>
+                </div>
+                <div class="chat-bubble ai-bubble typing">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <form id="chatForm" method="POST" action="{{ url_for('rag', conv=conv_id) }}">
+                <div class="input-group bg-light rounded-4 p-2 border">
+                    <textarea id="msgInput" name="message" class="form-control border-0" rows="1" placeholder="พิมพ์คำถามของคุณที่นี่..." required></textarea>
+                    <button id="sendBtn" class="btn btn-primary rounded-4 px-4 m-1 shadow-sm d-flex align-items-center" type="submit">
+                        <span id="btnText"><i class="bi bi-send-fill me-2"></i>ส่ง</span>
+                        <div id="btnSpinner" class="spinner-border spinner-border-sm d-none"></div>
+                    </button>
+                </div>
+                <div class="mt-2 text-center">
+                    <small class="text-muted" style="font-size: 0.7rem;">AI อาจมีการประมวลผลสักครู่ ขึ้นอยู่กับปริมาณข้อมูล</small>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
 
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-document.addEventListener("DOMContentLoaded", ()=>{
-    const chatBox = document.getElementById("chatBox");
-    if(chatBox){
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-});
+    document.addEventListener("DOMContentLoaded", () => {
+        const chatBox = document.getElementById("chatBox");
+        const chatForm = document.getElementById("chatForm");
+        const msgInput = document.getElementById("msgInput");
+        const aiLoading = document.getElementById("aiLoading");
+        const sendBtn = document.getElementById("sendBtn");
+        const btnText = document.getElementById("btnText");
+        const btnSpinner = document.getElementById("btnSpinner");
+
+        // ให้ Scroll ไปที่ข้อความล่างสุดเสมอเมื่อโหลดหน้า
+        if(chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+
+        if(chatForm) {
+            // ปรับขนาดความสูงของ Textarea อัตโนมัติเมื่อพิมพ์ยาวๆ
+            msgInput.addEventListener("input", function() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+            });
+
+            // รองรับการกด Enter เพื่อส่ง (แต่ถ้ากด Shift+Enter จะเป็นการขึ้นบรรทัดใหม่)
+            msgInput.addEventListener("keydown", (e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    if(msgInput.value.trim() !== "") {
+                        chatForm.dispatchEvent(new Event("submit"));
+                        chatForm.submit();
+                    }
+                }
+            });
+
+            // เมื่อกดส่ง: แสดงสถานะ Loading
+            chatForm.addEventListener("submit", () => {
+                aiLoading.classList.remove("d-none");
+                btnText.classList.add("d-none");
+                btnSpinner.classList.remove("d-none");
+                sendBtn.disabled = true;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            });
+        }
+    });
 </script>
 {% endblock %}

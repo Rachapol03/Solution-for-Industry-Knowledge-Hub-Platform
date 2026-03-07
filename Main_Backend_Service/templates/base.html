@@ -2,68 +2,125 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Knowledge Hub{% endblock %}</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
     <style>
-        body { background-color: #f4f6f9; }
-        .navbar { background-color: #0d1b2a; }
-        .sidebar { background-color: #1b263b; min-height: 100vh; }
+        :root {
+            --primary-color: #4318FF;
+            --secondary-color: #868CFF;
+            --bg-color: #F4F7FE;
+            --text-main: #2B3674;
+            --text-muted: #A3AED1;
+            --card-bg: #FFFFFF;
+        }
+
+        body {
+            background: var(--bg-color);
+            font-family: 'Poppins', sans-serif;
+            color: var(--text-main);
+        }
+
+        /* NAVBAR - Clean Version */
+        .navbar {
+            background: var(--card-bg);
+            box-shadow: 0 2px 20px rgba(0,0,0,0.03);
+            padding: 15px 24px;
+        }
+        .navbar-brand {
+            color: var(--text-main) !important;
+            font-size: 1.5rem;
+            letter-spacing: -0.5px;
+        }
+        .navbar-brand span {
+            color: var(--primary-color);
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            background: var(--card-bg);
+            min-height: calc(100vh - 70px);
+            box-shadow: 2px 0 20px rgba(0,0,0,0.03);
+            padding-top: 30px;
+            z-index: 10;
+        }
         .sidebar a {
-            color: #fff;
+            color: var(--text-muted);
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-radius: 12px;
+            margin: 8px 15px;
+            transition: all 0.3s ease;
             text-decoration: none;
-            display: block;
-            padding: 12px;
+            font-weight: 500;
         }
-        .sidebar a:hover { background-color: #415a77; }
+        .sidebar a:hover {
+            background: var(--bg-color);
+            color: var(--primary-color);
+            transform: translateX(5px);
+        }
         .active-menu {
-            background-color: #415a77;
-            font-weight: bold;
+            background: var(--primary-color) !important;
+            color: white !important;
+            box-shadow: 0 5px 15px rgba(67, 24, 255, 0.3);
         }
-        .content { padding: 30px; }
+
+        /* CONTENT */
+        .content {
+            padding: 40px;
+        }
+
+        /* CUSTOM SCROLLBAR */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     </style>
 </head>
+
 <body>
 
-<nav class="navbar navbar-dark px-3">
-    <a class="navbar-brand text-white" href="{{ url_for('dashboard') }}">
-        Solution for Industry Knowledge Hub Platform
-    </a>
+<nav class="navbar px-4">
+    <div class="navbar-brand fw-bold">
+        <i class="bi bi-hexagon-fill me-2" style="color: var(--primary-color);"></i>
+        Knowledge <span>Hub</span>
+    </div>
 </nav>
 
 <div class="container-fluid">
     <div class="row">
-        <div class="col-2 sidebar">
-            <a href="{{ url_for('dashboard') }}"
-               class="{% if request.endpoint == 'dashboard' %}active-menu{% endif %}">
-               Dashboard
+        
+        <div class="col-2 sidebar px-0">
+            <div class="px-4 mb-3 text-uppercase fw-bold text-muted small" style="letter-spacing: 1px;">
+                Main Menu
+            </div>
+            
+            <a href="{{ url_for('rag') }}" class="{% if request.endpoint == 'rag' %}active-menu{% endif %}">
+                <i class="bi bi-robot fs-5"></i> AI Assistant
             </a>
-
-            <a href="{{ url_for('rag') }}"
-               class="{% if request.endpoint == 'rag' %}active-menu{% endif %}">
-               AI Assistant
+            
+            <a href="{{ url_for('community_list') }}" class="{% if request.endpoint == 'community_list' %}active-menu{% endif %}">
+                <i class="bi bi-people-fill fs-5"></i> Community
             </a>
-
-            <a href="{{ url_for('community_list') }}"
-               class="{% if request.endpoint == 'community_list' %}active-menu{% endif %}">
-               Community
-            </a>
-
-            <a href="{{ url_for('logbook') }}"
-               class="{% if request.endpoint == 'logbook' %}active-menu{% endif %}">
-               Logbook
+            
+            <a href="{{ url_for('logbook') }}" class="{% if request.endpoint == 'logbook' %}active-menu{% endif %}">
+                <i class="bi bi-journal-text fs-5"></i> Logbook
             </a>
         </div>
 
         <div class="col-10 content">
             {% block content %}{% endblock %}
         </div>
+
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
 {% block scripts %}{% endblock %}
 </body>
 </html>

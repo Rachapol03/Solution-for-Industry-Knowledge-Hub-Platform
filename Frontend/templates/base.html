@@ -27,7 +27,7 @@
 <body>
 
 <nav class="navbar navbar-dark px-3">
-    <a class="navbar-brand text-white" href="{{ url_for('dashboard') }}">
+    <a class="navbar-brand text-white" href="{{ url_for('rag') }}">
         Solution for Industry Knowledge Hub Platform
     </a>
 </nav>
@@ -35,14 +35,9 @@
 <div class="container-fluid">
     <div class="row">
         <div class="col-2 sidebar">
-            <a href="{{ url_for('dashboard') }}"
-               class="{% if request.endpoint == 'dashboard' %}active-menu{% endif %}">
-               Dashboard
-            </a>
-
             <a href="{{ url_for('rag') }}"
                class="{% if request.endpoint == 'rag' %}active-menu{% endif %}">
-               AI Assistant
+               Home
             </a>
 
             <a href="{{ url_for('community_list') }}"
