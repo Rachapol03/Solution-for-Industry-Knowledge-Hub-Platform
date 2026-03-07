@@ -18,6 +18,7 @@ from rag_system import ask_rag
 
 import requests
 from openai import OpenAI
+from pymongo import MongoClient
 
 load_dotenv()
 
@@ -37,6 +38,13 @@ CONFIG = {
     "base_url": "https://gen.ai.kku.ac.th/api/v1",
     "local_api_url": "http://127.0.0.1:8000"
 }
+
+# ================= DATABASE =================
+
+client = MongoClient(CONFIG["db_key"])
+db = client['Knowledge_hub']
+posts_collection = db['community_posts']
+comments_collection = db['community_comments']
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -195,55 +203,46 @@ def community_post():
         'content': content,
         'tags': tags,
         'files': files,
-        'created_at': time.time()
+        'created_at': time.time(),
+        'author': 'Anonymous User'
     }
     
-    # ส่งข้อมูลไปบันทึกที่ Database ผ่าน Local API
+    # บันทึกข้อมูลไปยัง MongoDB
     try:
-        headers = {"x-api-key": CONFIG["db_key"]} # ปรับ Header ให้ตรงกับที่ API ฝั่ง DB ของคุณต้องการ
-        url = f"{CONFIG['local_api_url']}/api/posts" # ปรับ Path ให้ตรงกับ API สร้างโพสต์ของคุณ
+        posts_collection.insert_one(post_data)
         
-        res = requests.post(url, json=post_data, headers=headers)
-        res.raise_for_status()
+        # เพิ่มบรรทัดนี้: ลบ _id ออกก่อนส่งกลับไปที่ Frontend
+        post_data.pop('_id', None) 
         
         log(f"Community post added to DB: {title}")
         return jsonify({'status':'ok', 'post': post_data})
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         log(f"DB Error (Create Post): {str(e)}")
         return jsonify({'error': 'Failed to save to database'}), 500
 
 
 @app.route('/community/posts')
 def community_posts_list():
-    # ดึงข้อมูลโพสต์ทั้งหมดจาก Database API
+    # ดึงข้อมูลโพสต์ทั้งหมดจาก MongoDB
     try:
-        headers = {"x-api-key": CONFIG["db_key"]}
-        url = f"{CONFIG['local_api_url']}/api/posts" # ปรับ Path ให้ตรงกับ API ดึงโพสต์ของคุณ
-        
-        res = requests.get(url, headers=headers)
-        res.raise_for_status()
-        
-        posts_data = res.json() # คาดหวังว่า DB จะคืนค่าเป็น List ของ Dict
-        return jsonify(posts_data)
-    except requests.exceptions.RequestException as e:
+        posts = list(posts_collection.find({}, {'_id': 0}))
+        return jsonify(posts)
+    except Exception as e:
         log(f"DB Error (Get Posts): {str(e)}")
-        return jsonify([]), 500 # ส่ง List ว่างกลับไปเพื่อไม่ให้หน้าเว็บพัง
+        return jsonify([]), 500
 
 
 @app.route("/community/post/<post_id>")
 def community_detail(post_id):
-    # ดึงข้อมูลโพสต์แบบเฉพาะเจาะจงจาก Database API
+    # ดึงข้อมูลโพสต์แบบเฉพาะเจาะจงจาก MongoDB
     try:
-        headers = {"x-api-key": CONFIG["db_key"]}
-        url = f"{CONFIG['local_api_url']}/api/posts/{post_id}" # ปรับ Path ตาม API ของคุณ
-        
-        res = requests.get(url, headers=headers)
-        
-        if res.status_code == 404:
+        post = posts_collection.find_one({'id': post_id}, {'_id': 0})
+        if not post:
             return "Post not found", 404
-            
-        res.raise_for_status()
-        post = res.json()
+        
+        # ดึงคอมเมนต์ของโพสต์นี้
+        comments = list(comments_collection.find({'post_id': post_id}, {'_id': 0}))
+        post['comments'] = comments
         
         # จัดรูปแบบวันที่สำหรับแสดงผล
         if 'created_at' in post:
@@ -252,10 +251,9 @@ def community_detail(post_id):
             post['date'] = "Unknown Date"
 
         post.setdefault('author', 'Anonymous User')
-        post.setdefault('comments', [])
 
         return render_template("community.html", page="detail", post=post)
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         log(f"DB Error (Get Post Detail): {str(e)}")
         return "Database Connection Error", 500
 
@@ -276,17 +274,17 @@ def community_comment(post_id):
         'date': time.strftime('%Y-%m-%d %H:%M', time.localtime(time.time()))
     }
     
-    # ส่งคอมเมนต์ไปบันทึกลง Database
+    # บันทึกคอมเมนต์ลง MongoDB
+    # บันทึกคอมเมนต์ลง MongoDB
     try:
-        headers = {"x-api-key": CONFIG["db_key"]}
-        url = f"{CONFIG['local_api_url']}/api/posts/{post_id}/comments" # ปรับ Path ตาม API ของคุณ
+        comments_collection.insert_one(new_comment)
         
-        res = requests.post(url, json=new_comment, headers=headers)
-        res.raise_for_status()
+        # เพิ่มบรรทัดนี้: ลบ _id ออกก่อนส่งกลับไปที่ Frontend
+        new_comment.pop('_id', None) 
         
         log(f"Comment added to post ID: {post_id}")
         return jsonify({'status': 'ok', 'comment': new_comment})
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         log(f"DB Error (Add Comment): {str(e)}")
         return jsonify({'error': 'Failed to save comment to database'}), 500
 
@@ -296,21 +294,16 @@ def community_generate_summary():
     data = request.get_json() or {}
     pid = data.get('id')
     
-    # ต้องดึงเนื้อหาจาก DB ก่อนส่งไปสรุป
+    # ดึงเนื้อหาจาก MongoDB ก่อนส่งไปสรุป
     try:
-        headers = {"x-api-key": CONFIG["db_key"]}
-        url = f"{CONFIG['local_api_url']}/api/posts/{pid}"
-        
-        res = requests.get(url, headers=headers)
-        res.raise_for_status()
-        post = res.json()
+        post = posts_collection.find_one({'id': pid}, {'_id': 0})
+        if not post:
+            return jsonify({'error': 'Post not found'}), 404
         
         content = post.get('content','')
         summary = summarize_post(content, CONFIG)
         return jsonify({'summary': summary})
         
-    except requests.exceptions.RequestException as e:
-        return jsonify({'error': 'Post not found or DB error'}), 404
     except Exception as e:
         return jsonify({'error': f'Error summarizing: {e}'}), 500
 
