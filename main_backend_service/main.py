@@ -43,8 +43,8 @@ CONFIG = {
 
 client = MongoClient(CONFIG["db_key"])
 db = client['Knowledge_hub']
-posts_collection = db['community_posts']
-comments_collection = db['community_comments']
+# ใช้แค่ตารางโพสต์อย่างเดียว
+posts_collection = db['Community_post'] 
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -210,9 +210,7 @@ def community_post():
     # บันทึกข้อมูลไปยัง MongoDB
     try:
         posts_collection.insert_one(post_data)
-        
-        # เพิ่มบรรทัดนี้: ลบ _id ออกก่อนส่งกลับไปที่ Frontend
-        post_data.pop('_id', None) 
+        post_data.pop('_id', None) # ลบ _id ออกก่อนส่งกลับไปที่ Frontend
         
         log(f"Community post added to DB: {title}")
         return jsonify({'status':'ok', 'post': post_data})
@@ -234,15 +232,11 @@ def community_posts_list():
 
 @app.route("/community/post/<post_id>")
 def community_detail(post_id):
-    # ดึงข้อมูลโพสต์แบบเฉพาะเจาะจงจาก MongoDB
+    # ดึงข้อมูลโพสต์แบบเฉพาะเจาะจงจาก MongoDB (ไม่ต้องดึงคอมเมนต์แล้ว)
     try:
         post = posts_collection.find_one({'id': post_id}, {'_id': 0})
         if not post:
             return "Post not found", 404
-        
-        # ดึงคอมเมนต์ของโพสต์นี้
-        comments = list(comments_collection.find({'post_id': post_id}, {'_id': 0}))
-        post['comments'] = comments
         
         # จัดรูปแบบวันที่สำหรับแสดงผล
         if 'created_at' in post:
@@ -256,37 +250,6 @@ def community_detail(post_id):
     except Exception as e:
         log(f"DB Error (Get Post Detail): {str(e)}")
         return "Database Connection Error", 500
-
-
-@app.route('/community/post/<post_id>/comment', methods=['POST'])
-def community_comment(post_id):
-    data = request.get_json() or {}
-    text = data.get('text', '').strip()
-
-    if not text:
-        return jsonify({'error': 'comment text is required'}), 400
-
-    new_comment = {
-        'id': str(uuid.uuid4()),
-        'post_id': post_id,
-        'text': text,
-        'author': 'Anonymous User',
-        'date': time.strftime('%Y-%m-%d %H:%M', time.localtime(time.time()))
-    }
-    
-    # บันทึกคอมเมนต์ลง MongoDB
-    # บันทึกคอมเมนต์ลง MongoDB
-    try:
-        comments_collection.insert_one(new_comment)
-        
-        # เพิ่มบรรทัดนี้: ลบ _id ออกก่อนส่งกลับไปที่ Frontend
-        new_comment.pop('_id', None) 
-        
-        log(f"Comment added to post ID: {post_id}")
-        return jsonify({'status': 'ok', 'comment': new_comment})
-    except Exception as e:
-        log(f"DB Error (Add Comment): {str(e)}")
-        return jsonify({'error': 'Failed to save comment to database'}), 500
 
 
 @app.route('/community/generate_summary', methods=['POST'])
