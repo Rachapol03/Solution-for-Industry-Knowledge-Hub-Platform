@@ -3,6 +3,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer, CrossEncoder
 import uvicorn
+# --- เพิ่ม Import ---
+from pyngrok import ngrok
+import os
+from dotenv import load_dotenv 
+
+load_dotenv() 
+
+NGROK_AUTH_TOKEN = os.getenv("NGROK_AUTH_TOKEN") #
+PORT = 8000
 
 app = FastAPI()
 
@@ -15,9 +24,18 @@ app.add_middleware(
 )
 
 # โหลดโมเดลตัวจริงที่เครื่อง Local
-print("🚀 Loading BGE-M3 and Reranker-V2-M3 on Local Machine...")
+print("Loading BGE-M3 and Reranker-V2-M3 on Local Machine...")
 embed_model = SentenceTransformer('BAAI/bge-m3')
 rerank_model = CrossEncoder('BAAI/bge-reranker-v2-m3')
+
+
+def start_ngrok():
+    ngrok.set_auth_token(NGROK_AUTH_TOKEN)
+    public_url = ngrok.connect(PORT).public_url
+    print(f"====================================================")
+    print(f"Public URL: {public_url}")
+    print(f"นำ URL นี้ไปใส่ใน LOCAL_API_URL ของ Render")
+    print(f"====================================================")
 
 class EmbedRequest(BaseModel):
     text: str
@@ -50,5 +68,7 @@ async def rerank(request: RerankRequest):
     return {"scores": scores}
 
 if __name__ == "__main__":
-    # รันที่พอร์ต 8000
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # รัน ngrok ก่อนเริ่มเซิร์ฟเวอร์
+    start_ngrok()
+    # รัน FastAPI
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
