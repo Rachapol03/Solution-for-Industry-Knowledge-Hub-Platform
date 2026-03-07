@@ -11,3 +11,4 @@ typhoon-ocr
 pillow
 werkzeug
 pyngrok
+gunicorn
