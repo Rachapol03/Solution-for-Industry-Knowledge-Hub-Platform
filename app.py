@@ -1,6 +1,8 @@
 import os
 
-from Main_Backend_Service.main import app
+# Render runs the service with `python app.py`. This file is the entrypoint.
+# The Flask app is defined in main.py.
+from main import app
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
